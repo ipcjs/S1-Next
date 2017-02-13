@@ -44,6 +44,7 @@ public final class PostListActivity extends BaseActivity
     private static final String ARG_COME_FROM_OTHER_APP = "come_from_other_app";
 
     private static final String ARG_READ_PROGRESS = "read_progress";
+    private static final String ARG_OFFLINE = "offline";
 
     @Inject
     ReadProgressPreferencesManager mReadProgressPrefManager;
@@ -79,6 +80,15 @@ public final class PostListActivity extends BaseActivity
         thread.setId(String.valueOf(readProgress.getThreadId()));
         intent.putExtra(ARG_THREAD, thread);
         intent.putExtra(ARG_READ_PROGRESS, readProgress);
+
+        context.startActivity(intent);
+    }
+
+    public static void startPostListActivity(Context context, Thread thread, boolean offline, boolean shouldGoToLastPage) {
+        Intent intent = new Intent(context, PostListActivity.class);
+        intent.putExtra(ARG_THREAD, thread);
+        intent.putExtra(ARG_OFFLINE, offline);
+        intent.putExtra(ARG_SHOULD_GO_TO_LAST_PAGE, shouldGoToLastPage);
 
         context.startActivity(intent);
     }
@@ -133,6 +143,7 @@ public final class PostListActivity extends BaseActivity
                 fragment = PostListFragment.newInstance(thread, progress);
             } else {//没有进度信息
                 fragment = PostListFragment.newInstance(thread, intent.getBooleanExtra(
+                        ARG_OFFLINE, false), intent.getBooleanExtra(
                         ARG_SHOULD_GO_TO_LAST_PAGE, false));
             }
             getSupportFragmentManager().beginTransaction().add(R.id.frame_layout, fragment,

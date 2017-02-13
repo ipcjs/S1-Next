@@ -6,8 +6,13 @@ package me.ykrank.s1next.widget.track.event;
 
 public class ViewThreadTrackEvent extends TrackEvent {
 
-    public ViewThreadTrackEvent(String title, String threadId) {
+    public ViewThreadTrackEvent(String title, String threadId, boolean offline) {
         setGroup("浏览帖子");
+        if (offline){
+            setName("离线");
+        } else {
+            setName("在线");
+        }
         addData("title", title);
         addData("ThreadId", threadId);
     }

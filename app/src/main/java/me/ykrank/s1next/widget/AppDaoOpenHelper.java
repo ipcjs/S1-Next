@@ -9,6 +9,9 @@ import me.ykrank.s1next.App;
 import me.ykrank.s1next.R;
 import me.ykrank.s1next.data.db.dbmodel.BlackListDao;
 import me.ykrank.s1next.data.db.dbmodel.DaoMaster;
+import me.ykrank.s1next.data.db.dbmodel.DbThreadDao;
+import me.ykrank.s1next.data.db.dbmodel.ReadProgressDao;
+import me.ykrank.s1next.data.db.dbmodel.ThreadPageDao;
 import me.ykrank.s1next.util.L;
 
 /**
@@ -32,8 +35,11 @@ public class AppDaoOpenHelper extends DaoMaster.OpenHelper {
             onCreate(db);
             return;
         }
-        if (oldVersion == 2) {
+        if (oldVersion <= 2) {
             update2to3(db, oldVersion, newVersion);
+        }
+        if (oldVersion <= 3){
+            update3to4(db, oldVersion, newVersion);
         }
     }
 
@@ -49,7 +55,9 @@ public class AppDaoOpenHelper extends DaoMaster.OpenHelper {
             db.execSQL("ALTER TABLE " + DB_BLACKLIST + " RENAME TO " + tempDbBlackList + ";");
             db.execSQL("ALTER TABLE " + DB_READ_PROGRESS + " RENAME TO " + tempDbReadProgress + ";");
             //create new table
-            onCreate(db);
+            BlackListDao.createTable(db, false);
+            DbThreadDao.createTable(db, false);
+            ReadProgressDao.createTable(db, false);
             //copy old data  to new table
             db.execSQL("INSERT INTO " + DB_BLACKLIST + "(AuthorId,Author,Post,Forum,Remark,Timestamp,Upload) " +
                     "SELECT AuthorId,Author,Post,Forum,Remark,Timestamp,Upload FROM " + tempDbBlackList + ";");
@@ -65,5 +73,12 @@ public class AppDaoOpenHelper extends DaoMaster.OpenHelper {
         } finally {
             db.endTransaction();
         }
+    }
+    
+    /*
+    create ThreadPage table
+     */
+    private void update3to4(Database db, int oldVersion, int newVersion) {
+        ThreadPageDao.dropTable(db, false);
     }
 }

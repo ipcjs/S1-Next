@@ -29,12 +29,16 @@ import me.ykrank.s1next.data.api.model.Post;
 import me.ykrank.s1next.data.api.model.Thread;
 import me.ykrank.s1next.data.api.model.collection.Posts;
 import me.ykrank.s1next.data.api.model.wrapper.BaseResultWrapper;
+import me.ykrank.s1next.data.db.DbException;
 import me.ykrank.s1next.data.db.ReadProgressDbWrapper;
+import me.ykrank.s1next.data.db.ThreadPageDbWrapper;
 import me.ykrank.s1next.data.db.dbmodel.ReadProgress;
+import me.ykrank.s1next.data.db.dbmodel.ThreadPage;
 import me.ykrank.s1next.data.event.PostSelectableChangeEvent;
 import me.ykrank.s1next.data.event.QuickSidebarEnableChangeEvent;
 import me.ykrank.s1next.data.pref.GeneralPreferencesManager;
 import me.ykrank.s1next.databinding.FragmentBaseWithQuickSideBarBinding;
+import me.ykrank.s1next.util.ErrorUtil;
 import me.ykrank.s1next.util.L;
 import me.ykrank.s1next.util.LooperUtil;
 import me.ykrank.s1next.util.RxJavaUtil;
@@ -56,6 +60,7 @@ public final class PostListPagerFragment extends BaseRecyclerViewFragment<BaseRe
     private static final String ARG_PAGE_NUM = "page_num";
     private static final String ARG_READ_PROGRESS = "read_progress";
     private static final String ARG_PAGER_SCROLL_STATE = "pager_scroll_state";
+    private static final String ARG_OFFLINE = "offline";
 
     /**
      * Used for post post redirect.
@@ -70,6 +75,7 @@ public final class PostListPagerFragment extends BaseRecyclerViewFragment<BaseRe
 
     private String mThreadId;
     private int mPageNum;
+    private boolean mOffline;
     /**
      * 之前记录的阅读进度
      */
@@ -92,19 +98,19 @@ public final class PostListPagerFragment extends BaseRecyclerViewFragment<BaseRe
     private Disposable changeSeletableDisposable;
     private Disposable changeQuickSidebarEnableDisposable;
 
-    public static PostListPagerFragment newInstance(String threadId, int pageNum) {
-        return newInstance(threadId, pageNum, null, null, null);
+    public static PostListPagerFragment newInstance(String threadId, int pageNum, boolean offline) {
+        return newInstance(threadId, pageNum, null, null, null, offline);
     }
 
     public static PostListPagerFragment newInstance(String threadId, int pageNum, ReadProgress progress, PagerScrollState scrollState) {
-        return newInstance(threadId, pageNum, null, progress, scrollState);
+        return newInstance(threadId, pageNum, null, progress, scrollState, false);
     }
 
     public static PostListPagerFragment newInstance(String threadId, int pageNum, String postId) {
-        return newInstance(threadId, pageNum, postId, null, null);
+        return newInstance(threadId, pageNum, postId, null, null, false);
     }
 
-    private static PostListPagerFragment newInstance(String threadId, int pageNum, String postId, ReadProgress progress, PagerScrollState scrollState) {
+    private static PostListPagerFragment newInstance(String threadId, int pageNum, String postId, ReadProgress progress, PagerScrollState scrollState, boolean offline) {
         PostListPagerFragment fragment = new PostListPagerFragment();
         Bundle bundle = new Bundle();
         bundle.putString(ARG_THREAD_ID, threadId);
@@ -114,6 +120,7 @@ public final class PostListPagerFragment extends BaseRecyclerViewFragment<BaseRe
         bundle.putInt(ARG_PAGE_NUM, pageNum);
         bundle.putParcelable(ARG_READ_PROGRESS, progress);
         bundle.putParcelable(ARG_PAGER_SCROLL_STATE, scrollState);
+        bundle.putBoolean(ARG_OFFLINE, offline);
         fragment.setArguments(bundle);
 
         return fragment;
@@ -133,11 +140,13 @@ public final class PostListPagerFragment extends BaseRecyclerViewFragment<BaseRe
 
         mThreadId = getArguments().getString(ARG_THREAD_ID);
         mPageNum = getArguments().getInt(ARG_PAGE_NUM);
+        mOffline = getArguments().getBoolean(ARG_OFFLINE);
+        
         if (readProgress == null) {
             readProgress = getArguments().getParcelable(ARG_READ_PROGRESS);
             scrollState = getArguments().getParcelable(ARG_PAGER_SCROLL_STATE);
         }
-        L.leaveMsg("PostListPagerFragment##ThreadId:" + mThreadId + ",PageNum:" + mPageNum);
+        L.leaveMsg("PostListPagerFragment##ThreadId:" + mThreadId + ",PageNum:" + mPageNum+ ",Offline:" + mOffline);
 
         mRecyclerView = getRecyclerView();
         mLayoutManager = new LinearLayoutManager(getActivity());
@@ -272,7 +281,21 @@ public final class PostListPagerFragment extends BaseRecyclerViewFragment<BaseRe
 
     @Override
     Observable<BaseResultWrapper<Posts>> getSourceObservable() {
-        return mS1Service.getPostsWrapper(mThreadId, mPageNum);
+        if (mOffline){
+            return Observable.just("")
+                    .map(s-> {
+                        ThreadPage threadPage = ThreadPageDbWrapper.getInstance()
+                                .getWithThreadPage(Integer.valueOf(mThreadId), mPageNum);
+                        if (threadPage == null || threadPage.getPosts() == null){
+                            throw new DbException("thread local storage is null");
+                        }
+                        BaseResultWrapper<Posts> wrapper = new BaseResultWrapper<>();
+                        wrapper.setData(threadPage.getPosts());
+                        return wrapper;
+                    });
+        } else {
+            return mS1Service.getPostsWrapper(mThreadId, mPageNum);
+        }
     }
 
     @Override
@@ -337,6 +360,14 @@ public final class PostListPagerFragment extends BaseRecyclerViewFragment<BaseRe
 
     @Override
     void onError(Throwable throwable) {
+        //访问缓存错误
+        if (mOffline){
+            L.e(throwable);
+            if (isAdded() && getUserVisibleHint()) {
+                showShortSnackbar(R.string.message_thread_local_storage_error);
+            }
+            return;
+        }
         //网络请求失败下依然刷新黑名单
         if (blacklistChanged) {
             RxJavaUtil.disposeIfNotNull(blackListDisposable);

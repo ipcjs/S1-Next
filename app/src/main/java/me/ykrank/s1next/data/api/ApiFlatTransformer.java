@@ -12,7 +12,6 @@ import me.ykrank.s1next.data.api.model.Account;
 import me.ykrank.s1next.data.api.model.wrapper.AccountResultWrapper;
 import me.ykrank.s1next.data.api.model.wrapper.OriginWrapper;
 import me.ykrank.s1next.util.L;
-import me.ykrank.s1next.data.api.model.wrapper.OriginWrapper;
 
 /**
  * Created by ykrank on 2016/10/18.
@@ -24,15 +23,15 @@ public class ApiFlatTransformer {
      * A rxjava transformer to judge whether server throw error
      */
     public static <T> ObservableTransformer<T, T> apiErrorTransformer() {
-        return observable -> observable.flatMap(wrapper -> {
+        return observable -> observable.map(wrapper -> {
             if (wrapper instanceof OriginWrapper) {
                 String error = ((OriginWrapper) wrapper).getError();
                 //api error
                 if (!TextUtils.isEmpty(error)) {
-                    return Observable.error(new ApiException.ApiServerException(error));
+                    throw new ApiException.ApiServerException(error);
                 }
             }
-            return createData(wrapper);
+            return wrapper;
         });
     }
 
@@ -77,6 +76,7 @@ public class ApiFlatTransformer {
         return flatMappedWithAuthenticityToken(component.getS1Service(), component.getUserValidator(),
                 component.getUser(), func);
     }
+
     private static <T> Observable<T> createData(T t) {
         return Observable.create(emitter -> {
             try {

@@ -82,6 +82,7 @@ public final class PostListFragment extends BaseViewPagerFragment
     private static final String ARG_QUOTE_POST_ID = "quote_post_id";
 
     private static final String ARG_READ_PROGRESS = "read_progress";
+    private static final String ARG_OFFLINE = "offline";
 
     @Inject
     EventBus mEventBus;
@@ -98,6 +99,7 @@ public final class PostListFragment extends BaseViewPagerFragment
     private String mThreadId;
     @Nullable
     private String mThreadTitle;
+    private boolean mOffline;
 
     private Posts.ThreadAttachment mThreadAttachment;
     private MenuItem mMenuThreadAttachment;
@@ -149,6 +151,17 @@ public final class PostListFragment extends BaseViewPagerFragment
         return fragment;
     }
 
+    public static PostListFragment newInstance(Thread thread, boolean offline, boolean shouldGoToLastPage) {
+        PostListFragment fragment = new PostListFragment();
+        Bundle bundle = new Bundle();
+        bundle.putParcelable(ARG_THREAD, thread);
+        bundle.putBoolean(ARG_OFFLINE, offline);
+        bundle.putBoolean(ARG_SHOULD_GO_TO_LAST_PAGE, shouldGoToLastPage);
+        fragment.setArguments(bundle);
+
+        return fragment;
+    }
+
     @Override
     public void onViewCreated(View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
@@ -159,8 +172,10 @@ public final class PostListFragment extends BaseViewPagerFragment
         // thread title is null if this thread comes from ThreadLink
         mThreadTitle = thread.getTitle();
         mThreadId = thread.getId();
-        trackAgent.post(new ViewThreadTrackEvent(mThreadTitle, mThreadId));
-        L.leaveMsg("PostListFragment##ThreadTitle:" + mThreadTitle + ",ThreadId:" + mThreadId);
+        mOffline = bundle.getBoolean(ARG_OFFLINE);
+        
+        trackAgent.post(new ViewThreadTrackEvent(mThreadTitle, mThreadId, mOffline));
+        L.leaveMsg("PostListFragment##ThreadTitle:" + mThreadTitle + ",ThreadId:" + mThreadId+ ",Offline:" + mOffline);
 
         if (savedInstanceState == null) {
             final int jumpPage;
@@ -494,7 +509,7 @@ public final class PostListFragment extends BaseViewPagerFragment
                 scrollState.setState(PagerScrollState.BEFORE_SCROLL_POSITION);
                 return PostListPagerFragment.newInstance(mThreadId, i + 1, readProgress, scrollState);
             } else {
-                return PostListPagerFragment.newInstance(mThreadId, i + 1);
+                return PostListPagerFragment.newInstance(mThreadId, i + 1, mOffline);
             }
         }
     }
