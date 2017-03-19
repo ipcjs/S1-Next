@@ -7,6 +7,7 @@ import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.style.ImageSpan;
 import android.view.View;
+import android.webkit.URLUtil;
 
 import org.xml.sax.Attributes;
 import org.xml.sax.XMLReader;
