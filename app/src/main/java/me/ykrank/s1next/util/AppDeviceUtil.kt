@@ -38,6 +38,7 @@ object AppDeviceUtil {
     fun getSignature(context: Context): String {
         return context.getString(
             R.string.signature,
+            deviceNameWithVersion,
             getAppDownloadUrl(),
             getAppFullVersionName()
         )
@@ -49,6 +50,7 @@ object AppDeviceUtil {
     fun getPostSignature(context: Context): String {
         return context.getString(
             R.string.signature_in_reply,
+            deviceNameWithVersion,
             getAppDownloadUrl(),
             getAppFullVersionName()
         )
